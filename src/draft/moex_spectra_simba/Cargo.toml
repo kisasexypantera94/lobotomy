@@ -1,0 +1,10 @@
+[package]
+name = "moex_spectra_simba"
+version = "0.1.0"
+authors = ["sbetool"]
+description = "20201005"
+edition = "2018"
+
+[lib]
+name = "moex_spectra_simba"
+path = "src/lib.rs"
