@@ -43,7 +43,7 @@ impl<const SIZE: usize> LimitOrderBook<SIZE> {
         num_updates
     }
 
-    pub fn top_levels<const N: usize>(
+    pub fn top_levels_from_map<const N: usize>(
         &self,
     ) -> (
         [Option<(f64, PriceLevel)>; N],
@@ -55,7 +55,7 @@ impl<const SIZE: usize> LimitOrderBook<SIZE> {
         )
     }
 
-    pub fn top_levels2(&self) -> (&Vec<f64>, &Vec<f64>) {
+    pub fn top_levels(&self) -> (&Vec<f64>, &Vec<f64>) {
         (self.best_bids.top(), self.best_asks.top())
     }
 

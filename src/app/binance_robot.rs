@@ -56,7 +56,7 @@ fn limit_order_book_task(receiver: &mpsc::Receiver<EventMessage<MarketDataEvent>
                 let num_updates = limit_order_book.apply_event(&e);
                 let tick1 = tick_counter::stop();
 
-                let (bids, asks) = limit_order_book.top_levels2();
+                let (bids, asks) = limit_order_book.top_levels();
 
                 log::info!(
                     "LOB: latency=[{}], latency_per_update=[{}], bids=[{:?}], asks=[{}]",
