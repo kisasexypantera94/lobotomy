@@ -3,7 +3,7 @@
 extern crate lobotomy;
 extern crate test;
 
-use lobotomy::price_map::PriceMap;
+use lobotomy::order_book::PriceMap;
 use rand::Rng;
 
 const TICK_SIZE: f64 = 0.1;

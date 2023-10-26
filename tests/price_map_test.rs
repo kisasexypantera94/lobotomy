@@ -1,6 +1,6 @@
 extern crate lobotomy;
 
-use lobotomy::price_map::PriceMap;
+use lobotomy::order_book::PriceMap;
 use rand::Rng;
 
 use std::collections::HashMap;

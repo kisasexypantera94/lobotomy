@@ -1,5 +1,8 @@
-use super::depth_delta_decoder::{DepthDeltaEvent, Level};
+use super::depth_delta_decoder::DepthDeltaEvent;
+use crate::common::types::Level;
+
 use serde::Deserialize;
+
 use std::{error::Error, mem::swap};
 
 #[allow(non_snake_case)]

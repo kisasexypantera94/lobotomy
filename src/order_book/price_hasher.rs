@@ -8,7 +8,7 @@ pub struct PriceHasher {
 }
 
 impl PriceHasher {
-    const GROWTH_FACTOR: f64 = 0.001;
+    const GROWTH_FACTOR: f64 = 0.1;
 
     pub fn new(start_px: f64, tick_size: f64) -> Self {
         PriceHasher {

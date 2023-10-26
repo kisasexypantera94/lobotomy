@@ -3,6 +3,7 @@ extern crate lobotomy;
 use lobotomy::binance::*;
 use lobotomy::common::communication::EventMessage;
 use lobotomy::common::WebSocketListener;
+use lobotomy::order_book::LimitOrderBook;
 
 use std::sync::mpsc;
 
@@ -39,7 +40,11 @@ fn calibrate_tick_counter() -> f64 {
 fn limit_order_book_task(receiver: &mpsc::Receiver<EventMessage<MarketDataEvent>>) {
     let counter_accuracy = calibrate_tick_counter();
 
-    let mut limit_order_book = LimitOrderBook::<25>::new(34563.0, 0.01);
+    let start_px = 34176.0;
+    let tick_size = 0.01;
+    const LOB_SIZE: usize = 5;
+    let mut bid_lob = LimitOrderBook::<LOB_SIZE, true>::new(start_px, tick_size);
+    let mut ask_lob = LimitOrderBook::<LOB_SIZE, false>::new(start_px, tick_size);
 
     loop {
         let msg = match receiver.try_recv() {
@@ -49,13 +54,23 @@ fn limit_order_book_task(receiver: &mpsc::Receiver<EventMessage<MarketDataEvent>
             }
         };
 
-        match msg {
+        match &msg {
             EventMessage::Event(e) => {
                 let tick0 = tick_counter::start();
-                let num_updates = limit_order_book.apply_event(&e);
+                let num_updates = match &e {
+                    MarketDataEvent::Delta(delta) => {
+                        bid_lob.apply_updates::<false>(&delta.bids)
+                            + ask_lob.apply_updates::<false>(&delta.asks)
+                    }
+                    MarketDataEvent::Snapshot(snapshot) => {
+                        bid_lob.apply_updates::<true>(&snapshot.bids)
+                            + ask_lob.apply_updates::<true>(&snapshot.asks)
+                    }
+                };
                 let tick1 = tick_counter::stop();
 
-                let (bids, asks) = limit_order_book.top_levels();
+                let bids = bid_lob.top_levels();
+                let asks = ask_lob.top_levels();
 
                 log::info!(
                     "LOB: latency=[{}], latency_per_update=[{}], bids=[{:?}], asks=[{}]",

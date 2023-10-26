@@ -1,6 +1,8 @@
-use std::error::Error;
+use crate::common::types::Level;
 
 use serde::Deserialize;
+
+use std::error::Error;
 
 #[allow(non_snake_case, dead_code)]
 #[derive(Debug, Deserialize)]
@@ -12,12 +14,6 @@ struct RawDepthDeltaEvent {
     u: u64,
     b: Vec<(String, String)>,
     a: Vec<(String, String)>,
-}
-
-#[derive(Debug)]
-pub struct Level {
-    pub px: f64,
-    pub amt: f64,
 }
 
 #[derive(Debug)]
