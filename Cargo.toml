@@ -23,7 +23,7 @@ serde = { version = "1.0.190", features = ["derive"] }
 
 [[bin]]
 name = "binance_robot"
-path = "src/app/binance.rs"
+path = "src/app/binance_robot.rs"
 
 [profile.release]
 debug = false

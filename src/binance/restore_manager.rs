@@ -48,7 +48,7 @@ impl RestoreManager {
         MdEventProcessor: FnMut(MarketDataEvent),
     {
         if self.last_u != 0 && depth_events.first_update_id != self.last_u + 1 {
-            println!("Gap detected!");
+            log::warn!("Gap detected!");
             self.is_restored = false;
         }
 
