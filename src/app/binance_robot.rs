@@ -42,11 +42,13 @@ fn limit_order_book_task(receiver: &mpsc::Receiver<EventMessage<MarketDataEvent>
     let mut limit_order_book = LimitOrderBook::<25>::new(34563.0, 0.01);
 
     loop {
-        let msg = receiver.try_recv();
-        if msg.is_err() {
-            continue;
-        }
-        let msg = msg.unwrap();
+        let msg = match receiver.try_recv() {
+            Ok(msg) => msg,
+            Err(e) => {
+                log::error!("Could not receive message: err=[{}]", e);
+                continue;
+            }
+        };
 
         match msg {
             EventMessage::Event(e) => {
