@@ -3,18 +3,19 @@ use crate::common::utils::round_to_tick_size;
 /// Cases:
 ///
 /// - Amount > 0 (Upsert):
-///     1. Find pos for insert/update. If the pos is out of top (None) then do nothing.
-///     2. If we found the exact price then return.
-///     3. Shift to the right from the insert position
-///     4. Insert new price
+///     1. Find the position for insertion/update. If the position is beyond the top (None), then take no action.
+///     2. If we find the exact price, simply return.
+///     3. Shift to the right from the insertion position.
+///     4. Insert the new price.
+///
 /// - Amount == 0 (Delete):
-///     1. Find pos for the price. If the pos is out of top (None) then do nothing.
-///         Also find pos of the worst price in top.
-///     2. If `top[pos] != price` then return.
-///     3. If pos of the worst price is None that means that the top is empty - return.
-///     4. When we will delete the price there is going to be shift to the left,
-///         leaving an empty spot at the worst price position. So we have to ask PriceMap for the next worst price with amt > 0
-///     5. Insert next worst price in empty spot
+///     1. Find the position for the price. If the position is beyond the top (None), take no action.
+///        Also, find the position of the worst price in the top.
+///     2. If `top[pos] != price`, return.
+///     3. If the position of the worst price is None, it means the top is empty - return.
+///     4. When we delete the price, there will be a shift to the left,
+///        leaving an empty spot at the position of the worst price. Therefore, we need to ask PriceMap for the next worst price with amount > 0.
+///     5. Insert the next worst price in the empty spot.
 #[derive(Debug)]
 pub struct PriceTop<const N: usize, const REVERSE: bool> {
     top: Vec<f64>,
@@ -97,6 +98,6 @@ impl<const N: usize, const REVERSE: bool> PriceTop<N, REVERSE> {
     }
 
     pub fn clear(&mut self) {
-        // self.top.clear();
+        self.top.clear();
     }
 }

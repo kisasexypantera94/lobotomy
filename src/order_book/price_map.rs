@@ -52,38 +52,7 @@ impl PriceMap {
         }
     }
 
-    pub fn top_levels<const N: usize, const REVERSE: bool>(
-        &self,
-    ) -> [Option<(f64, PriceLevel)>; N] {
-        if REVERSE {
-            self.collect_top(self.levels.iter().enumerate().rev())
-        } else {
-            self.collect_top(self.levels.iter().enumerate())
-        }
-    }
-
-    fn collect_top<'a, const N: usize, Iter>(&self, iter: Iter) -> [Option<(f64, PriceLevel)>; N]
-    where
-        Iter: Iterator<Item = (usize, &'a PriceLevel)>,
-    {
-        let mut top = [None; N];
-        let mut cur_idx = 0;
-
-        for (idx, level) in iter {
-            if level.amt > 0.0 {
-                top[cur_idx] = Some((self.px_hasher.idx_to_px(idx), *level));
-
-                cur_idx += 1;
-                if cur_idx == N {
-                    break;
-                }
-            }
-        }
-
-        top
-    }
-
-    pub fn next_worst_px<const REVERSE: bool>(&self, px: f64) -> Option<f64> {
+    pub fn next_px<const REVERSE: bool>(&self, px: f64) -> Option<f64> {
         let px_idx = match self.px_hasher.try_hash(px) {
             Some(px_idx) => px_idx,
             None => return None,
@@ -114,5 +83,38 @@ impl PriceMap {
 
     pub fn clear(&mut self) {
         self.levels.clear();
+    }
+}
+
+impl PriceMap {
+    pub fn top_levels<const N: usize, const REVERSE: bool>(
+        &self,
+    ) -> [Option<(f64, PriceLevel)>; N] {
+        if REVERSE {
+            self.collect_top(self.levels.iter().enumerate().rev())
+        } else {
+            self.collect_top(self.levels.iter().enumerate())
+        }
+    }
+
+    fn collect_top<'a, const N: usize, Iter>(&self, iter: Iter) -> [Option<(f64, PriceLevel)>; N]
+    where
+        Iter: Iterator<Item = (usize, &'a PriceLevel)>,
+    {
+        let mut top = [None; N];
+        let mut cur_idx = 0;
+
+        for (idx, level) in iter {
+            if level.amt > 0.0 {
+                top[cur_idx] = Some((self.px_hasher.idx_to_px(idx), *level));
+
+                cur_idx += 1;
+                if cur_idx == N {
+                    break;
+                }
+            }
+        }
+
+        top
     }
 }

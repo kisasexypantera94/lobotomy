@@ -61,15 +61,18 @@ impl<const SIZE: usize> LimitOrderBook<SIZE> {
 
     fn apply_depths<const BID: bool>(&mut self, depths: &Vec<Level>) -> usize {
         for Level { px, amt } in depths.iter() {
+            // Note:
+            // We might skip the top update part by checking the condition (was_nonzero_amt || amt == 0.0),
+            // but that would require reading the old amount from memory, which we want to avoid.
             if BID {
                 self.bid_price_map.get_mut(*px).amt = *amt;
                 self.best_bids.update(*px, *amt, |worst_px| {
-                    self.bid_price_map.next_worst_px::<true>(worst_px)
+                    self.bid_price_map.next_px::<true>(worst_px)
                 });
             } else {
                 self.ask_price_map.get_mut(*px).amt = *amt;
                 self.best_asks.update(*px, *amt, |worst_px| {
-                    self.ask_price_map.next_worst_px::<false>(worst_px)
+                    self.ask_price_map.next_px::<false>(worst_px)
                 });
             };
         }
