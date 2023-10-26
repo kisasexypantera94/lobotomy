@@ -15,15 +15,16 @@ Lobotomy is a Limit Order Book (and more) implementation in Rust, designed for s
 
 ## Latency
 ### Per update
-|        Q       | depth=25 | depth=250 | depth=500 |
-|:-------------- | :--:     | :--:      | :--:
-|       0.5      | 41ns     | 171ns     | 254ns
-|       0.6      | 52ns     | 180ns     | 268ns
-|       0.7      | 75ns     | 196ns     | 277ns
-|       0.8      | 122ns    | 233ns     | 291ns
-|       0.9      | 243ns    | 354ns     | 359ns
-|       0.95     | 444ns    | 592ns     | 541ns
-|       0.99     | 1490s    | 1825ns    | 1590ns
+| Q              | depth=5 | depth=25 | depth=250 | depth=500 |
+| :------------- | :-----: | :------: | :-------: | :-------: |
+| 0.5            |   18ns  |   29ns   |   163ns   |   254ns   |
+| 0.6            |   20ns  |   31ns   |   168ns   |   268ns   |
+| 0.7            |   26ns  |   34ns   |   176ns   |   277ns   |
+| 0.8            |   34ns  |   40ns   |   191ns   |   291ns   |
+| 0.9            |   58ns  |   53ns   |   230ns   |   359ns   |
+| 0.95           |   93ns  |   77ns   |   286ns   |   541ns   |
+| 0.99           |   445ns |   183ns  |   605ns   |   1590ns  |
+
 
 Measured with [binance_robot](src/app/binance_robot.rs) on Apple M1 Pro.
 
