@@ -17,6 +17,7 @@ impl<const SIZE: usize, const IS_BID: bool> LimitOrderBook<SIZE, IS_BID> {
         }
     }
 
+    #[inline(always)]
     pub fn apply_updates<const IS_SNAPSHOT: bool>(&mut self, updates: &Vec<Level>) -> usize {
         if unlikely(IS_SNAPSHOT) {
             self.price_map.clear();
@@ -41,6 +42,7 @@ impl<const SIZE: usize, const IS_BID: bool> LimitOrderBook<SIZE, IS_BID> {
         self.price_map.top_levels::<N, IS_BID>()
     }
 
+    #[inline(always)]
     pub fn top_levels(&self) -> &Vec<f64> {
         self.price_top.top()
     }

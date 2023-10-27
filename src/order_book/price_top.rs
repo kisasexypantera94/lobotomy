@@ -30,6 +30,7 @@ impl<const N: usize, const REVERSE: bool> PriceTop<N, REVERSE> {
         }
     }
 
+    #[inline(always)]
     pub fn update(&mut self, px: f64, amt: f64, get_next_worst_px: impl Fn(f64) -> Option<f64>) {
         let px = round_to_tick_size(px, self.tick_size);
         let mut px_pos_opt = self.top.is_empty().then_some(0);
@@ -85,6 +86,7 @@ impl<const N: usize, const REVERSE: bool> PriceTop<N, REVERSE> {
         }
     }
 
+    #[inline(always)]
     fn comparator(a: f64, b: f64) -> bool {
         if REVERSE {
             a >= b
@@ -93,10 +95,12 @@ impl<const N: usize, const REVERSE: bool> PriceTop<N, REVERSE> {
         }
     }
 
+    #[inline(always)]
     pub fn top(&self) -> &Vec<f64> {
         &self.top
     }
 
+    #[inline(always)]
     pub fn clear(&mut self) {
         self.top.clear();
     }

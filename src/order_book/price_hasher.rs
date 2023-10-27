@@ -18,6 +18,7 @@ impl PriceHasher {
         }
     }
 
+    #[inline(always)]
     pub fn hash(&mut self, px: f64) -> (usize, usize) {
         let tick_idx = self.px_to_tick_idx(px);
         let tick_idx_min = self.px_to_tick_idx(self.px_min);
@@ -47,6 +48,7 @@ impl PriceHasher {
         (tick_idx - tick_idx_min, 0)
     }
 
+    #[inline(always)]
     pub fn try_hash(&self, px: f64) -> Option<usize> {
         let tick_idx = self.px_to_tick_idx(px);
         let tick_idx_min = self.px_to_tick_idx(self.px_min);
@@ -59,14 +61,17 @@ impl PriceHasher {
         None
     }
 
+    #[inline(always)]
     pub fn idx_to_px(&self, idx: usize) -> f64 {
         (idx + self.px_to_tick_idx(self.px_min)) as f64 * self.tick_size
     }
 
+    #[inline(always)]
     fn px_to_tick_idx(&self, px: f64) -> usize {
         utils::px_to_tick_idx(px, self.tick_size)
     }
 
+    #[inline(always)]
     fn round_to_tick_size(&self, val: f64) -> f64 {
         utils::round_to_tick_size(val, self.tick_size)
     }

@@ -11,6 +11,7 @@ fn init_log() {
     fast_log::init(
         fast_log::Config::new()
             .console()
+            .file("binance_robot.log")
             .level(log::LevelFilter::Info)
             .chan_len(Some(100000)),
     )

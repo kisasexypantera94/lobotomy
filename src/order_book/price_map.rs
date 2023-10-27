@@ -22,6 +22,7 @@ impl PriceMap {
     }
 
     /// May trigger rehashing
+    #[inline(always)]
     pub fn get_mut(&mut self, px: f64) -> &mut PriceLevel {
         let (px_idx, shift) = self.px_hasher.hash(px);
 
@@ -45,6 +46,7 @@ impl PriceMap {
     }
 
     /// May not trigger rehashing
+    #[inline(always)]
     pub fn get_immut(&self, px: f64) -> PriceLevel {
         match self.px_hasher.try_hash(px) {
             Some(px_idx) => self.levels[px_idx],
@@ -52,6 +54,7 @@ impl PriceMap {
         }
     }
 
+    #[inline(always)]
     pub fn next_px<const REVERSE: bool>(&self, px: f64) -> Option<f64> {
         let px_idx = match self.px_hasher.try_hash(px) {
             Some(px_idx) => px_idx,
@@ -81,6 +84,7 @@ impl PriceMap {
         None
     }
 
+    #[inline(always)]
     pub fn clear(&mut self) {
         self.levels.clear();
     }
