@@ -60,12 +60,16 @@ fn limit_order_book_task(receiver: &mpsc::Receiver<EventMessage<MarketDataEvent>
                 let tick0 = tick_counter::start();
                 let num_updates = match &e {
                     MarketDataEvent::Delta(delta) => {
-                        bid_lob.apply_updates::<false>(&delta.bids)
-                            + ask_lob.apply_updates::<false>(&delta.asks)
+                        bid_lob.apply_delta(&delta.bids);
+                        ask_lob.apply_delta(&delta.asks);
+
+                        delta.bids.len() + delta.asks.len()
                     }
                     MarketDataEvent::Snapshot(snapshot) => {
-                        bid_lob.apply_updates::<true>(&snapshot.bids)
-                            + ask_lob.apply_updates::<true>(&snapshot.asks)
+                        bid_lob.apply_snapshot(&snapshot.bids);
+                        ask_lob.apply_snapshot(&snapshot.asks);
+
+                        snapshot.bids.len() + snapshot.asks.len()
                     }
                 };
                 let tick1 = tick_counter::stop();

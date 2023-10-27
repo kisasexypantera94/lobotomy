@@ -1,7 +1,6 @@
 use super::PriceLevel;
 use super::PriceMap;
 use super::PriceTop;
-use crate::common::intrinsics::*;
 use crate::common::types::Level;
 
 pub struct LimitOrderBook<const SIZE: usize, const IS_BID: bool> {
@@ -18,12 +17,20 @@ impl<const SIZE: usize, const IS_BID: bool> LimitOrderBook<SIZE, IS_BID> {
     }
 
     #[inline(always)]
-    pub fn apply_updates<const IS_SNAPSHOT: bool>(&mut self, updates: &Vec<Level>) -> usize {
-        if unlikely(IS_SNAPSHOT) {
-            self.price_map.clear();
-            self.price_top.clear();
-        }
+    pub fn apply_snapshot(&mut self, snapshot: &Vec<Level>) {
+        self.price_map.clear();
+        self.price_top.clear();
 
+        self.apply_updates(&snapshot);
+    }
+
+    #[inline(always)]
+    pub fn apply_delta(&mut self, delta: &Vec<Level>) {
+        self.apply_updates(&delta);
+    }
+
+    #[inline(always)]
+    fn apply_updates(&mut self, updates: &Vec<Level>) {
         for Level { px, amt } in updates.iter() {
             // Note:
             // We might skip the top update part by checking the condition (was_nonzero_amt || amt == 0.0),
@@ -34,8 +41,6 @@ impl<const SIZE: usize, const IS_BID: bool> LimitOrderBook<SIZE, IS_BID> {
                 self.price_map.next_px::<IS_BID>(worst_px)
             });
         }
-
-        updates.len()
     }
 
     pub fn top_levels_from_map<const N: usize>(&self) -> [Option<(f64, PriceLevel)>; N] {
