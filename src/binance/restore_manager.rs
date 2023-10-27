@@ -27,6 +27,7 @@ pub enum MarketDataEvent {
 }
 
 pub struct RestoreManager {
+    snapshot_url: String,
     is_restored: bool,
     events_buffer: Vec<DepthDeltaEvent>,
     snapshot: Option<DepthSnapshotEvent>,
@@ -34,8 +35,9 @@ pub struct RestoreManager {
 }
 
 impl RestoreManager {
-    pub fn new() -> Self {
+    pub fn new(snapshot_url: &str) -> Self {
         RestoreManager {
+            snapshot_url: snapshot_url.to_string(),
             is_restored: false,
             events_buffer: Vec::new(),
             snapshot: None,
@@ -100,9 +102,7 @@ impl RestoreManager {
     }
 
     fn get_snapshot(&self) -> Result<DepthSnapshotEvent, Box<dyn Error>> {
-        const URL: &str = "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000";
-
-        let res = reqwest::blocking::get(URL).unwrap();
+        let res = reqwest::blocking::get(&self.snapshot_url).unwrap();
         let text = res.text().unwrap();
 
         let raw: RawDepthSnapshotEvent = serde_json::from_str(&text).unwrap();

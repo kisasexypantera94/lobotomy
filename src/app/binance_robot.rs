@@ -89,11 +89,12 @@ fn limit_order_book_task(receiver: &mpsc::Receiver<EventMessage<MarketDataEvent>
 }
 
 fn marketdata_task(sender: &mpsc::Sender<EventMessage<MarketDataEvent>>) {
-    const URL: &str = "wss://stream.binance.com:9443/ws/btcusdt@depth@100ms";
+    const DELTA_URL: &str = "wss://stream.binance.com:9443/ws/btcusdt@depth@100ms";
+    const SNAPSHOT_URL: &str = "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000";
 
-    let mut websocket_listener = WebSocketListener::new(URL);
+    let mut websocket_listener = WebSocketListener::new(DELTA_URL);
     let depth_decoder = DepthDeltaDecoder::new();
-    let mut restore_manager = RestoreManager::new();
+    let mut restore_manager = RestoreManager::new(SNAPSHOT_URL);
 
     loop {
         let msg = websocket_listener.read().unwrap();
