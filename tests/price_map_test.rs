@@ -28,6 +28,7 @@ fn price_map_test() {
 
     let mut fast_map = PriceMap::new(
         round_to_tick(rand::thread_rng().gen_range(px_range)),
+        None,
         tick_size,
     );
     let mut naive_map = HashMap::<usize, f64>::new();

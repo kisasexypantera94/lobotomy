@@ -9,9 +9,9 @@ pub struct LimitOrderBook<const SIZE: usize, const IS_BID: bool> {
 }
 
 impl<const SIZE: usize, const IS_BID: bool> LimitOrderBook<SIZE, IS_BID> {
-    pub fn new(start_px: f64, tick_size: f64) -> Self {
+    pub fn new(start_px: f64, end_px: Option<f64>, tick_size: f64) -> Self {
         LimitOrderBook {
-            price_map: PriceMap::new(start_px, tick_size),
+            price_map: PriceMap::new(start_px, end_px, tick_size),
             price_top: PriceTop::new(tick_size),
         }
     }

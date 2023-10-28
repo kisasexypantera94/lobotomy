@@ -14,7 +14,7 @@ pub struct PriceMap {
 }
 
 impl PriceMap {
-    pub fn new(start_px: f64, tick_size: f64) -> Self {
+    pub fn new(start_px: f64, _end_px: Option<f64>, tick_size: f64) -> Self {
         PriceMap {
             px_hasher: PriceHasher::new(start_px, tick_size),
             levels: Vec::new(),
@@ -28,6 +28,7 @@ impl PriceMap {
 
         if unlikely(px_idx >= self.levels.len()) {
             self.levels.resize(px_idx + 1, PriceLevel::default());
+            log::debug!("Resize triggered: new_len=[{}]", self.levels.len());
         }
 
         if likely(shift == 0) {
@@ -41,6 +42,7 @@ impl PriceMap {
         }
 
         self.levels = new_levels;
+        log::debug!("Shift triggered: new_len=[{}]", self.levels.len());
 
         &mut self.levels[px_idx]
     }
@@ -69,13 +71,13 @@ impl PriceMap {
                 .rev()
                 .skip(self.levels.len() - px_idx)
             {
-                if level.amt > 0.0 {
+                if likely(level.amt > 0.0) {
                     return Some(self.px_hasher.idx_to_px(idx));
                 }
             }
         } else {
             for (idx, level) in self.levels.iter().enumerate().skip(px_idx + 1) {
-                if level.amt > 0.0 {
+                if likely(level.amt > 0.0) {
                     return Some(self.px_hasher.idx_to_px(idx));
                 }
             }

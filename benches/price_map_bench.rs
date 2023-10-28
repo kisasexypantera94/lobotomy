@@ -37,6 +37,7 @@ fn price_map_bench(b: &mut test::Bencher) {
 
     let mut fast_map = PriceMap::new(
         round_to_tick(rand::thread_rng().gen_range(PX_RANGE)),
+        None,
         TICK_SIZE,
     );
 

@@ -12,7 +12,7 @@ fn init_log() {
         fast_log::Config::new()
             .console()
             .file("binance_robot.log")
-            .level(log::LevelFilter::Info)
+            .level(log::LevelFilter::Debug)
             .chan_len(Some(100000)),
     )
     .unwrap();
@@ -38,14 +38,15 @@ fn calibrate_tick_counter() -> f64 {
     counter_accuracy
 }
 
-fn limit_order_book_task(receiver: &mpsc::Receiver<EventMessage<MarketDataEvent>>) {
+fn limit_order_book_task(receiver: mpsc::Receiver<EventMessage<MarketDataEvent>>) {
     let counter_accuracy = calibrate_tick_counter();
 
-    let start_px = 34176.0;
+    let start_px = 34000.0;
+    let end_px = None;
     let tick_size = 0.01;
     const LOB_SIZE: usize = 5;
-    let mut bid_lob = LimitOrderBook::<LOB_SIZE, true>::new(start_px, tick_size);
-    let mut ask_lob = LimitOrderBook::<LOB_SIZE, false>::new(start_px, tick_size);
+    let mut bid_lob = LimitOrderBook::<LOB_SIZE, true>::new(start_px, end_px, tick_size);
+    let mut ask_lob = LimitOrderBook::<LOB_SIZE, false>::new(start_px, end_px, tick_size);
 
     loop {
         let msg = match receiver.try_recv() {
@@ -92,7 +93,7 @@ fn limit_order_book_task(receiver: &mpsc::Receiver<EventMessage<MarketDataEvent>
     }
 }
 
-fn marketdata_task(sender: &mpsc::Sender<EventMessage<MarketDataEvent>>) {
+fn marketdata_task(sender: mpsc::Sender<EventMessage<MarketDataEvent>>) {
     const DELTA_URL: &str = "wss://stream.binance.com:9443/ws/btcusdt@depth@100ms";
     const SNAPSHOT_URL: &str = "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000";
 
@@ -119,15 +120,15 @@ fn marketdata_task(sender: &mpsc::Sender<EventMessage<MarketDataEvent>>) {
 fn main() {
     init_log();
 
-    let (sender, receiver) = mpsc::channel::<EventMessage<MarketDataEvent>>();
-
     std::thread::scope(|s| {
+        let (sender, receiver) = mpsc::channel::<EventMessage<MarketDataEvent>>();
+
         s.spawn(move || {
-            limit_order_book_task(&receiver);
+            limit_order_book_task(receiver);
         });
 
         s.spawn(move || {
-            marketdata_task(&sender);
+            marketdata_task(sender);
         });
     });
 }
