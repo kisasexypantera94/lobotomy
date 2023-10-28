@@ -1,54 +1,111 @@
-use super::PriceLevel;
-use super::PriceMap;
-use super::PriceTop;
-use crate::common::types::Level;
+use crate::common::intrinsics::*;
+use crate::common::utils::round_to_tick_size;
 
-pub struct L2Book<const SIZE: usize, const IS_BID: bool> {
-    price_map: PriceMap,
-    price_top: PriceTop<SIZE, IS_BID>,
+use arrayvec::ArrayVec;
+
+#[derive(Debug)]
+pub struct L2Book<const N: usize, const REVERSE: bool> {
+    levels: ArrayVec<f64, N>,
+    tick_size: f64,
 }
 
-impl<const SIZE: usize, const IS_BID: bool> L2Book<SIZE, IS_BID> {
-    pub fn new(start_px: f64, end_px: Option<f64>, tick_size: f64) -> Self {
+impl<const N: usize, const REVERSE: bool> L2Book<N, REVERSE> {
+    pub fn new(tick_size: f64) -> Self {
         L2Book {
-            price_map: PriceMap::new(start_px, end_px, tick_size),
-            price_top: PriceTop::new(tick_size),
+            levels: ArrayVec::new(),
+            tick_size,
+        }
+    }
+
+    /// Cases:
+    ///
+    /// - Amount > 0 (Upsert):
+    ///     1. Find the position for insertion/update. If the position is beyond the top (None), then take no action.
+    ///     2. If we find the exact price, simply return.
+    ///     3. Shift to the right from the insertion position.
+    ///     4. Insert the new price.
+    ///
+    /// - Amount == 0 (Delete):
+    ///     1. Find the position for the price. If the position is beyond the top (None), take no action.
+    ///        Also, find the position of the worst price in the top.
+    ///     2. If `top[pos] != price`, return.
+    ///     3. If the position of the worst price is None, it means the top is empty - return.
+    ///     4. When we delete the price, there will be a shift to the left,
+    ///        leaving an empty spot at the position of the worst price. Therefore, we need to ask PriceMap for the next worst price with amount > 0.
+    ///     5. Insert the next worst price in the empty spot.
+    #[inline(always)]
+    pub fn update(&mut self, px: f64, amt: f64, get_next_worst_px: impl Fn(f64) -> Option<f64>) {
+        let px = round_to_tick_size(px, self.tick_size);
+        let mut px_pos_opt = self.levels.is_empty().then_some(0);
+        let mut worst_top_pos_opt = None;
+
+        for (idx, other_px) in self.levels.iter().enumerate() {
+            worst_top_pos_opt = Some(idx);
+
+            if px_pos_opt.is_none() && Self::comparator(px, *other_px) {
+                px_pos_opt = Some(idx);
+            }
+        }
+
+        let px_pos = match px_pos_opt {
+            None => return,
+            Some(pos) => pos,
+        };
+
+        if amt == 0.0 {
+            let worst_px = match worst_top_pos_opt {
+                None => return,
+                Some(pos) => self.levels[pos],
+            };
+
+            if self.levels[px_pos] != px {
+                return;
+            }
+
+            self.levels.drain(px_pos..=px_pos);
+
+            let next_worst_px = match get_next_worst_px(worst_px) {
+                None => return,
+                Some(next_worst_px) => round_to_tick_size(next_worst_px, self.tick_size),
+            };
+
+            self.levels.push(next_worst_px);
+
+            return;
+        }
+
+        if unlikely(self.levels.is_empty()) {
+            self.levels.push(px);
+            return;
+        }
+
+        if self.levels[px_pos] == px {
+            return;
+        }
+
+        if likely(self.levels.len() == N) {
+            self.levels.pop();
+        }
+
+        self.levels.insert(px_pos, px);
+    }
+
+    #[inline(always)]
+    fn comparator(a: f64, b: f64) -> bool {
+        if REVERSE {
+            a >= b
+        } else {
+            a <= b
         }
     }
 
     #[inline(always)]
-    pub fn apply_snapshot(&mut self, snapshot: &Vec<Level>) {
-        self.price_map.clear();
-        self.price_top.clear();
-
-        self.apply_updates(&snapshot);
+    pub fn levels(&self) -> &[f64] {
+        &self.levels
     }
 
     #[inline(always)]
-    pub fn apply_delta(&mut self, delta: &Vec<Level>) {
-        self.apply_updates(&delta);
-    }
-
-    #[inline(always)]
-    fn apply_updates(&mut self, updates: &Vec<Level>) {
-        for Level { px, amt } in updates.iter() {
-            // Note:
-            // We might skip the top update part by checking the condition (was_nonzero_amt || amt == 0.0),
-            // but that would require reading the old amount from memory, which we want to avoid.
-            self.price_map.get_mut(*px).amt = *amt;
-
-            self.price_top.update(*px, *amt, |worst_px| {
-                self.price_map.next_px::<IS_BID>(worst_px)
-            });
-        }
-    }
-
-    pub fn top_levels_from_map<const N: usize>(&self) -> [Option<(f64, PriceLevel)>; N] {
-        self.price_map.top_levels::<N, IS_BID>()
-    }
-
-    #[inline(always)]
-    pub fn top_levels(&self) -> &Vec<f64> {
-        self.price_top.top()
+    pub fn clear(&mut self) {
+        self.levels.clear();
     }
 }

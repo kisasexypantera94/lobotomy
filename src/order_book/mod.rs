@@ -1,9 +1,9 @@
 mod l2book;
+mod l2book_builder;
 mod price_hasher;
 mod price_map;
-mod price_top;
 
 pub use l2book::L2Book;
+pub use l2book_builder::L2BookBuilder;
 pub use price_hasher::PriceHasher;
 pub use price_map::{PriceLevel, PriceMap};
-pub use price_top::PriceTop;

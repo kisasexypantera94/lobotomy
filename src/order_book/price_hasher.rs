@@ -33,7 +33,7 @@ impl PriceHasher {
         let new_tick_idx_min = self.px_to_tick_idx(new_px_min);
         self.px_min = new_px_min;
 
-        return (tick_idx - new_tick_idx_min, tick_idx_min - new_tick_idx_min);
+        (tick_idx - new_tick_idx_min, tick_idx_min - new_tick_idx_min)
     }
 
     #[inline(always)]

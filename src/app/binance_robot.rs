@@ -3,7 +3,7 @@ extern crate lobotomy;
 use lobotomy::binance::*;
 use lobotomy::common::communication::EventMessage;
 use lobotomy::common::WebSocketListener;
-use lobotomy::order_book::L2Book;
+use lobotomy::order_book::L2BookBuilder;
 
 use std::sync::mpsc;
 
@@ -38,18 +38,18 @@ fn calibrate_tick_counter() -> f64 {
     counter_accuracy
 }
 
-fn limit_order_book_task(receiver: mpsc::Receiver<EventMessage<MarketDataEvent>>) {
+fn limit_order_book_task(md_receiver: mpsc::Receiver<EventMessage<MarketDataEvent>>) {
     let counter_accuracy = calibrate_tick_counter();
 
-    let start_px = 34000.0;
+    let start_px = 0.0;
     let end_px = None;
     let tick_size = 0.01;
     const LOB_SIZE: usize = 5;
-    let mut bid_lob = L2Book::<LOB_SIZE, true>::new(start_px, end_px, tick_size);
-    let mut ask_lob = L2Book::<LOB_SIZE, false>::new(start_px, end_px, tick_size);
+    let mut bid_lob_builder = L2BookBuilder::<LOB_SIZE, true>::new(start_px, end_px, tick_size);
+    let mut ask_lob_builder = L2BookBuilder::<LOB_SIZE, false>::new(start_px, end_px, tick_size);
 
     loop {
-        let msg = match receiver.try_recv() {
+        let msg = match md_receiver.try_recv() {
             Ok(msg) => msg,
             Err(_) => {
                 continue;
@@ -61,22 +61,22 @@ fn limit_order_book_task(receiver: mpsc::Receiver<EventMessage<MarketDataEvent>>
                 let tick0 = tick_counter::start();
                 let num_updates = match &e {
                     MarketDataEvent::Delta(delta) => {
-                        bid_lob.apply_delta(&delta.bids);
-                        ask_lob.apply_delta(&delta.asks);
+                        bid_lob_builder.apply_delta(&delta.bids);
+                        ask_lob_builder.apply_delta(&delta.asks);
 
                         delta.bids.len() + delta.asks.len()
                     }
                     MarketDataEvent::Snapshot(snapshot) => {
-                        bid_lob.apply_snapshot(&snapshot.bids);
-                        ask_lob.apply_snapshot(&snapshot.asks);
+                        bid_lob_builder.apply_snapshot(&snapshot.bids);
+                        ask_lob_builder.apply_snapshot(&snapshot.asks);
 
                         snapshot.bids.len() + snapshot.asks.len()
                     }
                 };
                 let tick1 = tick_counter::stop();
 
-                let bids = bid_lob.top_levels();
-                let asks = ask_lob.top_levels();
+                let bids = bid_lob_builder.book().levels();
+                let asks = ask_lob_builder.book().levels();
 
                 log::info!(
                     "LOB: latency=[{}], latency_per_update=[{}], bids=[{:?}], asks=[{}]",
@@ -93,7 +93,7 @@ fn limit_order_book_task(receiver: mpsc::Receiver<EventMessage<MarketDataEvent>>
     }
 }
 
-fn marketdata_task(sender: mpsc::Sender<EventMessage<MarketDataEvent>>) {
+fn marketdata_task(md_sender: mpsc::Sender<EventMessage<MarketDataEvent>>) {
     const DELTA_URL: &str = "wss://stream.binance.com:9443/ws/btcusdt@depth@100ms";
     const SNAPSHOT_URL: &str = "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000";
 
@@ -112,7 +112,7 @@ fn marketdata_task(sender: mpsc::Sender<EventMessage<MarketDataEvent>>) {
         };
 
         restore_manager.apply_depth(depth_delta, &mut |md_event| {
-            let _ = sender.send(EventMessage::Event(md_event));
+            let _ = md_sender.send(EventMessage::Event(md_event));
         });
     }
 }
@@ -121,14 +121,14 @@ fn main() {
     init_log();
 
     std::thread::scope(|s| {
-        let (sender, receiver) = mpsc::channel::<EventMessage<MarketDataEvent>>();
+        let (md_sender, md_receiver) = mpsc::channel::<EventMessage<MarketDataEvent>>();
 
         s.spawn(move || {
-            limit_order_book_task(receiver);
+            limit_order_book_task(md_receiver);
         });
 
         s.spawn(move || {
-            marketdata_task(sender);
+            marketdata_task(md_sender);
         });
     });
 }
