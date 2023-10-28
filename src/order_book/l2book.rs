@@ -3,14 +3,14 @@ use super::PriceMap;
 use super::PriceTop;
 use crate::common::types::Level;
 
-pub struct LimitOrderBook<const SIZE: usize, const IS_BID: bool> {
+pub struct L2Book<const SIZE: usize, const IS_BID: bool> {
     price_map: PriceMap,
     price_top: PriceTop<SIZE, IS_BID>,
 }
 
-impl<const SIZE: usize, const IS_BID: bool> LimitOrderBook<SIZE, IS_BID> {
+impl<const SIZE: usize, const IS_BID: bool> L2Book<SIZE, IS_BID> {
     pub fn new(start_px: f64, end_px: Option<f64>, tick_size: f64) -> Self {
-        LimitOrderBook {
+        L2Book {
             price_map: PriceMap::new(start_px, end_px, tick_size),
             price_top: PriceTop::new(tick_size),
         }

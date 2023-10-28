@@ -3,7 +3,7 @@ extern crate lobotomy;
 use lobotomy::binance::*;
 use lobotomy::common::communication::EventMessage;
 use lobotomy::common::WebSocketListener;
-use lobotomy::order_book::LimitOrderBook;
+use lobotomy::order_book::L2Book;
 
 use std::sync::mpsc;
 
@@ -45,8 +45,8 @@ fn limit_order_book_task(receiver: mpsc::Receiver<EventMessage<MarketDataEvent>>
     let end_px = None;
     let tick_size = 0.01;
     const LOB_SIZE: usize = 5;
-    let mut bid_lob = LimitOrderBook::<LOB_SIZE, true>::new(start_px, end_px, tick_size);
-    let mut ask_lob = LimitOrderBook::<LOB_SIZE, false>::new(start_px, end_px, tick_size);
+    let mut bid_lob = L2Book::<LOB_SIZE, true>::new(start_px, end_px, tick_size);
+    let mut ask_lob = L2Book::<LOB_SIZE, false>::new(start_px, end_px, tick_size);
 
     loop {
         let msg = match receiver.try_recv() {
