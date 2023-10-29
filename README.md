@@ -27,6 +27,3 @@ Lobotomy is a Limit Order Book (and more) implementation in Rust, designed for s
 
 
 Measured with [binance_robot](src/app/binance_robot.rs) on Apple M1 Pro.
-
-## TODO
-- PriceMap pollution detection and rebuild
