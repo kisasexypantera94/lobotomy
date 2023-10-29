@@ -1,6 +1,6 @@
 extern crate lobotomy;
 
-use lobotomy::binance::*;
+use lobotomy::binance::{DepthDiffDecoder, MarketData, RestoreManager};
 use lobotomy::common::communication::EventMessage;
 use lobotomy::common::WebSocketListener;
 use lobotomy::order_book::L2BookBuilder;
@@ -38,7 +38,7 @@ fn calibrate_tick_counter() -> f64 {
     counter_accuracy
 }
 
-fn limit_order_book_task(md_receiver: mpsc::Receiver<EventMessage<MarketDataEvent>>) {
+fn limit_order_book_task(md_receiver: mpsc::Receiver<EventMessage<MarketData>>) {
     let counter_accuracy = calibrate_tick_counter();
 
     let start_px = 0.0;
@@ -57,18 +57,18 @@ fn limit_order_book_task(md_receiver: mpsc::Receiver<EventMessage<MarketDataEven
         };
 
         match &msg {
-            EventMessage::Event(e) => {
+            EventMessage::Event(md) => {
                 let tick0 = tick_counter::start();
-                let num_updates = match &e {
-                    MarketDataEvent::Delta(delta) => {
-                        bid_lob_builder.apply_delta(&delta.bids);
-                        ask_lob_builder.apply_delta(&delta.asks);
+                let num_updates = match &md {
+                    MarketData::Diff(diff) => {
+                        bid_lob_builder.apply_l2_updates(&diff.bids);
+                        ask_lob_builder.apply_l2_updates(&diff.asks);
 
-                        delta.bids.len() + delta.asks.len()
+                        diff.bids.len() + diff.asks.len()
                     }
-                    MarketDataEvent::Snapshot(snapshot) => {
-                        bid_lob_builder.apply_snapshot(&snapshot.bids);
-                        ask_lob_builder.apply_snapshot(&snapshot.asks);
+                    MarketData::Snapshot(snapshot) => {
+                        bid_lob_builder.apply_l2_snapshot(&snapshot.bids);
+                        ask_lob_builder.apply_l2_snapshot(&snapshot.asks);
 
                         snapshot.bids.len() + snapshot.asks.len()
                     }
@@ -93,17 +93,17 @@ fn limit_order_book_task(md_receiver: mpsc::Receiver<EventMessage<MarketDataEven
     }
 }
 
-fn marketdata_task(md_sender: mpsc::Sender<EventMessage<MarketDataEvent>>) {
-    const DELTA_URL: &str = "wss://stream.binance.com:9443/ws/btcusdt@depth@100ms";
+fn marketdata_task(md_sender: mpsc::Sender<EventMessage<MarketData>>) {
+    const DIFF_URL: &str = "wss://stream.binance.com:9443/ws/btcusdt@depth@100ms";
     const SNAPSHOT_URL: &str = "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000";
 
-    let mut websocket_listener = WebSocketListener::new(DELTA_URL);
-    let depth_decoder = DepthDeltaDecoder::new();
+    let mut websocket_listener = WebSocketListener::new(DIFF_URL);
+    let depth_decoder = DepthDiffDecoder::new();
     let mut restore_manager = RestoreManager::new(SNAPSHOT_URL);
 
     loop {
         let msg = websocket_listener.read().unwrap();
-        let depth_delta = match depth_decoder.decode(&msg) {
+        let depth_diff = match depth_decoder.decode(&msg) {
             Ok(ev) => ev,
             Err(_) => {
                 log::error!("Could not decode depth event: msg=[{}]", msg);
@@ -111,7 +111,7 @@ fn marketdata_task(md_sender: mpsc::Sender<EventMessage<MarketDataEvent>>) {
             }
         };
 
-        restore_manager.apply_depth(depth_delta, &mut |md_event| {
+        restore_manager.apply_diff(depth_diff, &mut |md_event| {
             let _ = md_sender.send(EventMessage::Event(md_event));
         });
     }
@@ -121,7 +121,7 @@ fn main() {
     init_log();
 
     std::thread::scope(|s| {
-        let (md_sender, md_receiver) = mpsc::channel::<EventMessage<MarketDataEvent>>();
+        let (md_sender, md_receiver) = mpsc::channel::<EventMessage<MarketData>>();
 
         s.spawn(move || {
             limit_order_book_task(md_receiver);

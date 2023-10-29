@@ -6,7 +6,7 @@ use std::error::Error;
 
 #[allow(non_snake_case, dead_code)]
 #[derive(Debug, Deserialize)]
-struct RawDepthDeltaEvent {
+struct RawDepthDiff {
     e: String,
     E: u64,
     s: String,
@@ -17,7 +17,7 @@ struct RawDepthDeltaEvent {
 }
 
 #[derive(Debug)]
-pub struct DepthDeltaEvent {
+pub struct DepthDiff {
     pub timestamp: u64,
     pub symbol: String,
     pub first_update_id: u64,
@@ -26,15 +26,15 @@ pub struct DepthDeltaEvent {
     pub asks: Vec<Level>,
 }
 
-pub struct DepthDeltaDecoder {}
+pub struct DepthDiffDecoder {}
 
-impl DepthDeltaDecoder {
+impl DepthDiffDecoder {
     pub fn new() -> Self {
-        DepthDeltaDecoder {}
+        DepthDiffDecoder {}
     }
 
-    pub fn decode(&self, text: &str) -> Result<DepthDeltaEvent, Box<dyn Error>> {
-        let raw: RawDepthDeltaEvent = serde_json::from_str(text)?;
+    pub fn decode(&self, text: &str) -> Result<DepthDiff, Box<dyn Error>> {
+        let raw: RawDepthDiff = serde_json::from_str(text)?;
 
         let str_to_f64 = |v: &Vec<(String, String)>| {
             v.iter()
@@ -45,7 +45,7 @@ impl DepthDeltaDecoder {
                 .collect()
         };
 
-        Ok(DepthDeltaEvent {
+        Ok(DepthDiff {
             timestamp: raw.E,
             symbol: raw.s,
             first_update_id: raw.U,
