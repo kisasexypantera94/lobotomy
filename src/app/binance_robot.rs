@@ -7,7 +7,7 @@ use lobotomy::order_book::L2BookBuilder;
 
 use heapless::spsc; // std::sync::mpsc was causing a segfault
 
-const QUEUE_SIZE: usize = 64;
+const QUEUE_SIZE: usize = 16;
 
 fn init_log() {
     fast_log::init(
@@ -114,7 +114,13 @@ fn marketdata_task(mut md_sender: spsc::Producer<EventMessage<MarketData>, QUEUE
         };
 
         restore_manager.apply_diff(depth_diff, &mut |md_event| {
-            let _ = md_sender.enqueue(EventMessage::Event(md_event));
+            let mut item = EventMessage::Event(md_event);
+
+            while let Err(i) = md_sender.enqueue(item) {
+                log::warn!("MarketData queue is full!");
+                item = i;
+                continue;
+            }
         });
     }
 }
