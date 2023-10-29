@@ -14,7 +14,7 @@
 Lobotomy is a Limit Order Book (and more) implementation in Rust, designed for safety and performance.
 
 ## Latency
-### Level-based, per update
+### L2 from L2, per update
 | Q              | depth=5 | depth=25 | depth=250 | depth=500 |
 | :------------- | :-----: | :------: | :-------: | :-------: |
 | 0.5            |   18ns  |   29ns   |   163ns   |   254ns   |

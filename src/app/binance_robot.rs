@@ -98,13 +98,13 @@ fn marketdata_task(md_sender: mpsc::Sender<EventMessage<MarketData>>) {
     const SNAPSHOT_URL: &str = "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000";
 
     let mut websocket_listener = WebSocketListener::new(DIFF_URL);
-    let depth_decoder = DepthDiffDecoder::new();
+    let depth_diff_decoder = DepthDiffDecoder::new();
     let mut restore_manager = RestoreManager::new(SNAPSHOT_URL);
 
     loop {
         let msg = websocket_listener.read().unwrap();
-        let depth_diff = match depth_decoder.decode(&msg) {
-            Ok(ev) => ev,
+        let depth_diff = match depth_diff_decoder.decode(&msg) {
+            Ok(diff) => diff,
             Err(_) => {
                 log::error!("Could not decode depth event: msg=[{}]", msg);
                 continue;
