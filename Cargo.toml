@@ -20,6 +20,7 @@ log = "0.4.20"
 serde = { version = "1.0.190", features = ["derive"] }
 more-asserts = "0.3.1"
 arrayvec = "0.7.4"
+heapless = "0.7.16"
 
 [[bin]]
 name = "binance_robot"

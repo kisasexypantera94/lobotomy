@@ -5,7 +5,9 @@ use lobotomy::common::communication::EventMessage;
 use lobotomy::common::WebSocketListener;
 use lobotomy::order_book::L2BookBuilder;
 
-use std::sync::mpsc;
+use heapless::spsc; // std::sync::mpsc was causing a segfault
+
+const QUEUE_SIZE: usize = 64;
 
 fn init_log() {
     fast_log::init(
@@ -38,7 +40,7 @@ fn calibrate_tick_counter() -> f64 {
     counter_accuracy
 }
 
-fn limit_order_book_task(md_receiver: mpsc::Receiver<EventMessage<MarketData>>) {
+fn limit_order_book_task(mut md_receiver: spsc::Consumer<EventMessage<MarketData>, QUEUE_SIZE>) {
     let counter_accuracy = calibrate_tick_counter();
 
     let start_px = 0.0;
@@ -49,9 +51,9 @@ fn limit_order_book_task(md_receiver: mpsc::Receiver<EventMessage<MarketData>>) 
     let mut ask_lob_builder = L2BookBuilder::<LOB_SIZE, false>::new(start_px, end_px, tick_size);
 
     loop {
-        let msg = match md_receiver.try_recv() {
-            Ok(msg) => msg,
-            Err(_) => {
+        let msg = match md_receiver.dequeue() {
+            Some(msg) => msg,
+            None => {
                 continue;
             }
         };
@@ -93,7 +95,7 @@ fn limit_order_book_task(md_receiver: mpsc::Receiver<EventMessage<MarketData>>) 
     }
 }
 
-fn marketdata_task(md_sender: mpsc::Sender<EventMessage<MarketData>>) {
+fn marketdata_task(mut md_sender: spsc::Producer<EventMessage<MarketData>, QUEUE_SIZE>) {
     const DIFF_URL: &str = "wss://stream.binance.com:9443/ws/btcusdt@depth@100ms";
     const SNAPSHOT_URL: &str = "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000";
 
@@ -112,7 +114,7 @@ fn marketdata_task(md_sender: mpsc::Sender<EventMessage<MarketData>>) {
         };
 
         restore_manager.apply_diff(depth_diff, &mut |md_event| {
-            let _ = md_sender.send(EventMessage::Event(md_event));
+            let _ = md_sender.enqueue(EventMessage::Event(md_event));
         });
     }
 }
@@ -120,9 +122,10 @@ fn marketdata_task(md_sender: mpsc::Sender<EventMessage<MarketData>>) {
 fn main() {
     init_log();
 
-    std::thread::scope(|s| {
-        let (md_sender, md_receiver) = mpsc::channel::<EventMessage<MarketData>>();
+    let mut md_queue = spsc::Queue::<EventMessage<MarketData>, QUEUE_SIZE>::new();
+    let (md_sender, md_receiver) = md_queue.split();
 
+    std::thread::scope(|s| {
         s.spawn(move || {
             limit_order_book_task(md_receiver);
         });
