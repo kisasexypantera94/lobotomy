@@ -35,6 +35,48 @@ impl<const N: usize, const REVERSE: bool> L2Book<N, REVERSE> {
     ///     5. Insert the next worst price in the empty spot.
     #[inline(always)]
     pub fn update(&mut self, px: f64, amt: f64, get_next_worst_px: impl Fn(f64) -> Option<f64>) {
+        if amt > 0.0 {
+            self.upsert(px)
+        } else {
+            self.delete(px, get_next_worst_px)
+        }
+    }
+
+    #[inline(always)]
+    fn upsert(&mut self, px: f64) {
+        let px = round_to_tick_size(px, self.tick_size);
+        let mut px_pos_opt = self.levels.is_empty().then_some(0);
+
+        for (idx, other_px) in self.levels.iter().enumerate() {
+            if Self::comparator(px, *other_px) {
+                px_pos_opt = Some(idx);
+                break;
+            }
+        }
+
+        let px_pos = match px_pos_opt {
+            None => return,
+            Some(pos) => pos,
+        };
+
+        if unlikely(self.levels.is_empty()) {
+            self.levels.push(px);
+            return;
+        }
+
+        if self.levels[px_pos] == px {
+            return;
+        }
+
+        if likely(self.levels.len() == N) {
+            self.levels.pop();
+        }
+
+        self.levels.insert(px_pos, px);
+    }
+
+    #[inline(always)]
+    pub fn delete(&mut self, px: f64, get_next_worst_px: impl Fn(f64) -> Option<f64>) {
         let px = round_to_tick_size(px, self.tick_size);
         let mut px_pos_opt = self.levels.is_empty().then_some(0);
         let mut worst_top_pos_opt = None;
@@ -52,42 +94,23 @@ impl<const N: usize, const REVERSE: bool> L2Book<N, REVERSE> {
             Some(pos) => pos,
         };
 
-        if amt == 0.0 {
-            let worst_px = match worst_top_pos_opt {
-                None => return,
-                Some(pos) => self.levels[pos],
-            };
-
-            if self.levels[px_pos] != px {
-                return;
-            }
-
-            self.levels.drain(px_pos..=px_pos);
-
-            let next_worst_px = match get_next_worst_px(worst_px) {
-                None => return,
-                Some(next_worst_px) => round_to_tick_size(next_worst_px, self.tick_size),
-            };
-
-            self.levels.push(next_worst_px);
-
+        if self.levels[px_pos] != px {
             return;
         }
 
-        if unlikely(self.levels.is_empty()) {
-            self.levels.push(px);
-            return;
-        }
+        let worst_px = match worst_top_pos_opt {
+            None => return,
+            Some(pos) => self.levels[pos],
+        };
 
-        if self.levels[px_pos] == px {
-            return;
-        }
+        self.levels.drain(px_pos..=px_pos);
 
-        if likely(self.levels.len() == N) {
-            self.levels.pop();
-        }
+        let next_worst_px = match get_next_worst_px(worst_px) {
+            None => return,
+            Some(next_worst_px) => round_to_tick_size(next_worst_px, self.tick_size),
+        };
 
-        self.levels.insert(px_pos, px);
+        self.levels.push(next_worst_px);
     }
 
     #[inline(always)]
