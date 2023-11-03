@@ -21,10 +21,15 @@ serde = { version = "1.0.190", features = ["derive"] }
 more-asserts = "0.3.1"
 arrayvec = "0.7.4"
 heapless = "0.7.16"
+itchy = "0.2.3"
 
 [[bin]]
 name = "binance_robot"
 path = "src/app/binance_robot.rs"
+
+[[bin]]
+name = "nasdaq_robot"
+path = "src/app/nasdaq_robot.rs"
 
 [profile.release]
 debug = false

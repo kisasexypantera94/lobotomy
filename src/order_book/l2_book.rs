@@ -55,8 +55,8 @@ impl<const N: usize, const REVERSE: bool> L2Book<N, REVERSE> {
         }
 
         let px_pos = match px_pos_opt {
-            None => return,
             Some(pos) => pos,
+            None => return,
         };
 
         if unlikely(self.levels.is_empty()) {
@@ -78,7 +78,7 @@ impl<const N: usize, const REVERSE: bool> L2Book<N, REVERSE> {
     #[inline(always)]
     pub fn delete(&mut self, px: f64, get_next_worst_px: impl Fn(f64) -> Option<f64>) {
         let px = round_to_tick_size(px, self.tick_size);
-        let mut px_pos_opt = self.levels.is_empty().then_some(0);
+        let mut px_pos_opt = None;
         let mut worst_top_pos_opt = None;
 
         for (idx, other_px) in self.levels.iter().enumerate() {
@@ -90,8 +90,8 @@ impl<const N: usize, const REVERSE: bool> L2Book<N, REVERSE> {
         }
 
         let px_pos = match px_pos_opt {
-            None => return,
             Some(pos) => pos,
+            None => return,
         };
 
         if self.levels[px_pos] != px {
@@ -99,15 +99,15 @@ impl<const N: usize, const REVERSE: bool> L2Book<N, REVERSE> {
         }
 
         let worst_px = match worst_top_pos_opt {
-            None => return,
             Some(pos) => self.levels[pos],
+            None => return,
         };
 
         self.levels.drain(px_pos..=px_pos);
 
         let next_worst_px = match get_next_worst_px(worst_px) {
-            None => return,
             Some(next_worst_px) => round_to_tick_size(next_worst_px, self.tick_size),
+            None => return,
         };
 
         self.levels.push(next_worst_px);

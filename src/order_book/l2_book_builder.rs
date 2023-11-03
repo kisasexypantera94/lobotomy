@@ -21,12 +21,11 @@ impl<const SIZE: usize, const IS_BID: bool> L2BookBuilder<SIZE, IS_BID> {
         self.price_map.clear();
         self.l2_book.clear();
 
-        self.apply_l2_updates(l2_snapshot);
+        self.apply_l2_upserts(l2_snapshot);
     }
 
-    // TODO: support delta updates (amt = old_amt + delta)
     #[inline(always)]
-    pub fn apply_l2_updates(&mut self, l2_updates: &[Level]) {
+    pub fn apply_l2_upserts(&mut self, l2_updates: &[Level]) {
         for Level { px, amt } in l2_updates.iter() {
             // Note:
             // We might skip the top update part by checking the condition (was_nonzero_amt || amt == 0.0),
@@ -39,6 +38,18 @@ impl<const SIZE: usize, const IS_BID: bool> L2BookBuilder<SIZE, IS_BID> {
         }
     }
 
+    #[inline(always)]
+    pub fn apply_l2_deltas(&mut self, l2_deltas: &[Level]) {
+        for Level { px, amt } in l2_deltas.iter() {
+            let level = self.price_map.get_mut(*px);
+            level.amt += *amt;
+
+            self.l2_book.update(*px, level.amt, |worst_px| {
+                self.price_map.next_px::<IS_BID>(worst_px)
+            });
+        }
+    }
+
     pub fn top_levels_from_map<const N: usize>(&self) -> [Option<(f64, PriceLevel)>; N] {
         self.price_map.top_levels::<N, IS_BID>()
     }
@@ -46,5 +57,9 @@ impl<const SIZE: usize, const IS_BID: bool> L2BookBuilder<SIZE, IS_BID> {
     #[inline(always)]
     pub fn book(&self) -> &L2Book<SIZE, IS_BID> {
         &self.l2_book
+    }
+
+    pub fn get_level(&self, px: f64) -> PriceLevel {
+        self.price_map.get_immut(px)
     }
 }

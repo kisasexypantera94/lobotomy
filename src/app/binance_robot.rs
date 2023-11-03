@@ -63,8 +63,8 @@ fn limit_order_book_task(mut md_receiver: spsc::Consumer<EventMessage<MarketData
                 let tick0 = tick_counter::start();
                 let num_updates = match &md {
                     MarketData::Diff(diff) => {
-                        bid_lob_builder.apply_l2_updates(&diff.bids);
-                        ask_lob_builder.apply_l2_updates(&diff.asks);
+                        bid_lob_builder.apply_l2_upserts(&diff.bids);
+                        ask_lob_builder.apply_l2_upserts(&diff.asks);
 
                         diff.bids.len() + diff.asks.len()
                     }
@@ -81,8 +81,7 @@ fn limit_order_book_task(mut md_receiver: spsc::Consumer<EventMessage<MarketData
                 let asks = ask_lob_builder.book().levels();
 
                 log::info!(
-                    "LOB: latency=[{}], latency_per_update=[{}], bids=[{:?}], asks=[{}]",
-                    ((tick1 - tick0) as f64 * counter_accuracy).round() as usize / 1000,
+                    "latency=[{}], bids=[{:?}], asks=[{}]",
                     ((tick1 - tick0) as f64 * counter_accuracy).round() as usize / num_updates,
                     bids[0],
                     asks[0]
