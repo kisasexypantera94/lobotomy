@@ -22,6 +22,8 @@ more-asserts = "0.3.1"
 arrayvec = "0.7.4"
 heapless = "0.7.16"
 itchy = "0.2.3"
+cueue = "0.3.1"
+rtrb = "0.2.3"
 
 [[bin]]
 name = "binance_robot"

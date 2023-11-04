@@ -7,9 +7,9 @@ impl HeapInvocable {
     where
         T: FnMut() + Send + 'static,
     {
-        return HeapInvocable {
+        HeapInvocable {
             data: Box::new(data),
-        };
+        }
     }
 
     pub fn invoke(&mut self) {

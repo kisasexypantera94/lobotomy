@@ -3,16 +3,15 @@ extern crate lobotomy;
 use std::collections::HashMap;
 
 use lobotomy::common::communication::EventMessage;
-use lobotomy::common::HeapInvocable;
+use lobotomy::common::StackInvocable;
 use lobotomy::nasdaq::ItchIntoL2Deltas;
 use lobotomy::order_book::L2BookBuilder;
 
-use heapless::spsc;
 use itchy::ArrayString8;
 use more_asserts::assert_lt;
+use rtrb::{Consumer, Producer, PushError, RingBuffer};
 
-pub const QUEUE_SIZE: usize = 65536;
-pub type Invocable = HeapInvocable; // StackInvocable is still unstable
+pub type Invocable = StackInvocable<32>;
 
 fn calibrate_tick_counter() -> f64 {
     let (counter_frequency, accuracy) = tick_counter::frequency();
@@ -34,26 +33,25 @@ fn calibrate_tick_counter() -> f64 {
     counter_accuracy
 }
 
-fn async_task(mut consumer: spsc::Consumer<EventMessage<Invocable>, QUEUE_SIZE>) {
+fn async_task(mut consumer: Consumer<EventMessage<Invocable>>) {
     loop {
-        let msg = match consumer.dequeue() {
-            Some(msg) => msg,
-            None => {
+        let msg = match consumer.pop() {
+            Ok(msg) => msg,
+            Err(_) => {
                 continue;
             }
         };
 
         match msg {
             EventMessage::Event(mut invocable) => invocable.invoke(),
-            EventMessage::Stop() => return,
+            EventMessage::Stop => return,
         }
     }
 }
 
-fn limit_order_book_task(mut producer: spsc::Producer<EventMessage<Invocable>, QUEUE_SIZE>) {
+fn limit_order_book_task(mut producer: Producer<EventMessage<Invocable>>) {
     const LOB_SIZE: usize = 25;
 
-    #[derive(Debug)]
     struct StockLOB {
         bid: L2BookBuilder<LOB_SIZE, true>,
         ask: L2BookBuilder<LOB_SIZE, false>,
@@ -65,7 +63,10 @@ fn limit_order_book_task(mut producer: spsc::Producer<EventMessage<Invocable>, Q
     let filename = "/Users/dvgr/dev/resources/08302019.NASDAQ_ITCH50";
     let stream = itchy::MessageStream::from_file(filename).unwrap();
 
-    let stock_filter = ["GOOG", "NVDA", "AAAP", "TSLA", "AMZN", "AMD"].map(String::from);
+    let stock_filter = [
+        "GOOG", "NVDA", "AAAP", "TSLA", "AMZN", "AMD", "MSFT", "META", "GOOGL", "INTC",
+    ]
+    .map(String::from);
     let mut l2_from_itch = ItchIntoL2Deltas::new(&stock_filter);
     let mut stock_to_lob = HashMap::<ArrayString8, StockLOB>::new();
 
@@ -73,6 +74,7 @@ fn limit_order_book_task(mut producer: spsc::Producer<EventMessage<Invocable>, Q
         let start_px = 0.0;
         let end_px = None;
         let tick_size = 0.01;
+
         stock_to_lob.insert(
             ArrayString8::from(stock).unwrap(),
             StockLOB {
@@ -83,9 +85,9 @@ fn limit_order_book_task(mut producer: spsc::Producer<EventMessage<Invocable>, Q
     }
 
     for msg in stream {
-        let msg = msg.unwrap();
         let tick0 = tick_counter::start();
-        l2_from_itch.apply_message(&msg.body, |stock, side, l2_delta| {
+        // ---------------------------------------------------------------------
+        l2_from_itch.apply_message(&msg.unwrap().body, |stock, side, l2_delta| {
             if let Some(lob) = stock_to_lob.get_mut(stock) {
                 match side {
                     itchy::Side::Buy => {
@@ -114,9 +116,15 @@ fn limit_order_book_task(mut producer: spsc::Producer<EventMessage<Invocable>, Q
                     println!("stock=[{}], bids=[{}], asks=[{}]", stock, b0, a0);
                 });
 
-                let _ = producer.enqueue(EventMessage::Event(async_task));
+                let mut item = EventMessage::Event(async_task);
+                while let Err(PushError::Full(i)) = producer.push(item) {
+                    // println!("MarketData queue is full!");
+                    item = i;
+                    continue;
+                }
             }
         });
+        // ---------------------------------------------------------------------
         let tick1 = tick_counter::start();
 
         let async_task = Invocable::new(move || {
@@ -126,15 +134,19 @@ fn limit_order_book_task(mut producer: spsc::Producer<EventMessage<Invocable>, Q
             );
         });
 
-        let _ = producer.enqueue(EventMessage::Event(async_task));
+        let mut item = EventMessage::Event(async_task);
+        while let Err(PushError::Full(i)) = producer.push(item) {
+            // println!("MarketData queue is full!");
+            item = i;
+            continue;
+        }
     }
 
-    let _ = producer.enqueue(EventMessage::Stop());
+    while let Err(_) = producer.push(EventMessage::Stop) {}
 }
 
 fn main() {
-    let mut queue = spsc::Queue::<EventMessage<Invocable>, QUEUE_SIZE>::new();
-    let (producer, consumer) = queue.split();
+    let (producer, consumer) = RingBuffer::new(2_usize.pow(32));
 
     std::thread::scope(move |s| {
         s.spawn(move || {
