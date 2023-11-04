@@ -89,7 +89,7 @@ fn limit_order_book_task(mut md_receiver: spsc::Consumer<EventMessage<MarketData
 
                 assert!(bids[0] < asks[0]);
             }
-            EventMessage::Stop() => break,
+            EventMessage::Stop => break,
         }
     }
 }
