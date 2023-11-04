@@ -3,6 +3,7 @@ use super::PriceLevel;
 use super::PriceMap;
 use crate::common::types::Level;
 
+#[derive(Debug)]
 pub struct L2BookBuilder<const SIZE: usize, const IS_BID: bool> {
     price_map: PriceMap,
     l2_book: L2Book<SIZE, IS_BID>,
@@ -59,6 +60,7 @@ impl<const SIZE: usize, const IS_BID: bool> L2BookBuilder<SIZE, IS_BID> {
         &self.l2_book
     }
 
+    #[inline(always)]
     pub fn get_level(&self, px: f64) -> PriceLevel {
         self.price_map.get_immut(px)
     }

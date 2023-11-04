@@ -4,9 +4,11 @@ pub mod types;
 pub mod utils;
 
 mod byte_array_reader;
+mod heap_invocable;
 mod stack_invocable;
 mod websocket_listener;
 
 pub use byte_array_reader::ByteArrayReader;
+pub use heap_invocable::HeapInvocable;
 pub use stack_invocable::StackInvocable;
 pub use websocket_listener::WebSocketListener;
