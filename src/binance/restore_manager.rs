@@ -16,8 +16,8 @@ struct RawDepthSnapshot {
 #[derive(Debug)]
 pub struct DepthSnapshot {
     pub last_update_id: u64,
-    pub bids: Vec<Level>,
-    pub asks: Vec<Level>,
+    pub bids: Vec<Level<f64, f64>>,
+    pub asks: Vec<Level<f64, f64>>,
 }
 
 #[derive(Debug)]

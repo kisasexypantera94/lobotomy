@@ -13,16 +13,31 @@
 
 Lobotomy is a Limit Order Book (and more) implementation in Rust, designed for safety and performance.
 
+## Latency
+### L2 from L3 deltas, per update
+| Q              | depth=16384 |
+| :------------- | :-----: |
+| 0.5            |   42ns  |
+| 0.6            |   42ns  |
+| 0.7            |   83ns  |
+| 0.8            |   125ns |
+| 0.9            |   208ns |
+| 0.95           |   292ns |
+| 0.99           |   792ns |
+
+
+Measured with [nasdaq_robot](src/app/nasdaq_robot.rs) on Apple M1 Pro.
+
 ### L2 from L2 upserts, per update
-| Q              | depth=5 | depth=25 | depth=250 | depth=500 |
-| :------------- | :-----: | :------: | :-------: | :-------: |
-| 0.5            |   18ns  |   29ns   |   163ns   |   254ns   |
-| 0.6            |   20ns  |   31ns   |   168ns   |   268ns   |
-| 0.7            |   26ns  |   34ns   |   176ns   |   277ns   |
-| 0.8            |   34ns  |   40ns   |   191ns   |   291ns   |
-| 0.9            |   58ns  |   53ns   |   230ns   |   359ns   |
-| 0.95           |   93ns  |   77ns   |   286ns   |   541ns   |
-| 0.99           |   445ns |   183ns  |   605ns   |   1590ns  |
+| Q              | depth=16384 |
+| :------------- | :-----: |
+| 0.5            |   804ns  |
+| 0.6            |   845ns  |
+| 0.7            |   907s  |
+| 0.8            |   1024ns  |
+| 0.9            |   1259ns  |
+| 0.95           |   1569ns  |
+| 0.99           |   27085ns |
 
 
 Measured with [binance_robot](src/app/binance_robot.rs) on Apple M1 Pro.

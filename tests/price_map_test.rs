@@ -26,7 +26,7 @@ fn price_map_test() {
         ));
     }
 
-    let mut fast_map = PriceMap::new(
+    let mut fast_map = PriceMap::<f64, f64>::new(
         round_to_tick(rand::thread_rng().gen_range(px_range)),
         None,
         tick_size,

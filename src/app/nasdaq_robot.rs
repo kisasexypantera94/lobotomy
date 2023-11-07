@@ -1,13 +1,12 @@
 extern crate lobotomy;
 
-use std::collections::HashMap;
-
 use lobotomy::common::communication::EventMessage;
+use lobotomy::common::types::L2Delta;
 use lobotomy::common::StackInvocable;
-use lobotomy::nasdaq::ItchIntoL2Deltas;
+use lobotomy::nasdaq::{ItchIntoL2Deltas, Price4Wrapper};
 use lobotomy::order_book::L2BookBuilder;
 
-use itchy::ArrayString8;
+use itchy::Body;
 use more_asserts::assert_lt;
 use rtrb::{Consumer, Producer, PushError, RingBuffer};
 
@@ -33,9 +32,9 @@ fn calibrate_tick_counter() -> f64 {
     counter_accuracy
 }
 
-fn async_task(mut consumer: Consumer<EventMessage<Invocable>>) {
+fn async_task(mut async_consuemr: Consumer<EventMessage<Invocable>>) {
     loop {
-        let msg = match consumer.pop() {
+        let msg = match async_consuemr.pop() {
             Ok(msg) => msg,
             Err(_) => {
                 continue;
@@ -49,12 +48,13 @@ fn async_task(mut consumer: Consumer<EventMessage<Invocable>>) {
     }
 }
 
-fn limit_order_book_task(mut producer: Producer<EventMessage<Invocable>>) {
-    const LOB_SIZE: usize = 25;
+fn limit_order_book_task(mut async_producer: Producer<EventMessage<Invocable>>) {
+    const LOB_SIZE: usize = 2_usize.pow(14);
 
+    #[derive(Clone)]
     struct StockLOB {
-        bid: L2BookBuilder<LOB_SIZE, true>,
-        ask: L2BookBuilder<LOB_SIZE, false>,
+        bid: L2BookBuilder<Price4Wrapper, u32, LOB_SIZE, true>,
+        ask: L2BookBuilder<Price4Wrapper, u32, LOB_SIZE, false>,
     }
 
     let counter_accuracy = calibrate_tick_counter();
@@ -64,68 +64,90 @@ fn limit_order_book_task(mut producer: Producer<EventMessage<Invocable>>) {
     let stream = itchy::MessageStream::from_file(filename).unwrap();
 
     let stock_filter = [
-        "GOOG", "NVDA", "AAAP", "TSLA", "AMZN", "AMD", "MSFT", "META", "GOOGL", "INTC",
-    ]
-    .map(String::from);
-    let mut l2_from_itch = ItchIntoL2Deltas::new(&stock_filter);
-    let mut stock_to_lob = HashMap::<ArrayString8, StockLOB>::new();
+        "GOOG", "NVDA", "AAPL", "TSLA", "AMZN", "AMD", "MSFT", "META", "GOOGL", "INTC", "AAL",
+        "BKNG", "DKNG", "ROKU", "V", "UBER",
+    ];
 
-    for stock in stock_filter.iter() {
-        let start_px = 0.0;
-        let end_px = None;
-        let tick_size = 0.01;
-
-        stock_to_lob.insert(
-            ArrayString8::from(stock).unwrap(),
-            StockLOB {
-                bid: L2BookBuilder::new(start_px, end_px, tick_size),
-                ask: L2BookBuilder::new(start_px, end_px, tick_size),
-            },
-        );
-    }
+    let mut l2_from_itch = ItchIntoL2Deltas::new();
+    let mut stock_to_lob = vec![None; 2_usize.pow(14)];
 
     for msg in stream {
+        let msg = msg.unwrap();
+
+        if let Body::StockDirectory(sd) = &msg.body {
+            let stock = sd.stock.trim_end();
+            if stock_filter.contains(&stock) {
+                let start_px = Price4Wrapper(itchy::Price4::from(0));
+                let end_px = None;
+                let tick_size = Price4Wrapper(itchy::Price4::from(100));
+
+                stock_to_lob.insert(
+                    msg.stock_locate as usize,
+                    Some(StockLOB {
+                        bid: L2BookBuilder::new(start_px, end_px, tick_size),
+                        ask: L2BookBuilder::new(start_px, end_px, tick_size),
+                    }),
+                )
+            }
+        };
+
+        let mut had_updates = false;
         let tick0 = tick_counter::start();
         // ---------------------------------------------------------------------
-        l2_from_itch.apply_message(&msg.unwrap().body, |stock, side, l2_delta| {
-            if let Some(lob) = stock_to_lob.get_mut(stock) {
+        l2_from_itch.apply_message(&msg, |side, px, amt_delta| {
+            if let Some(lob) = stock_to_lob[msg.stock_locate as usize].as_mut() {
+                had_updates = true;
                 match side {
                     itchy::Side::Buy => {
-                        lob.bid.apply_l2_deltas(std::slice::from_ref(l2_delta));
+                        lob.bid.apply_l2_deltas(std::slice::from_ref(&L2Delta {
+                            px: Price4Wrapper(*px),
+                            amt_delta: *amt_delta,
+                        }));
                     }
                     itchy::Side::Sell => {
-                        lob.ask.apply_l2_deltas(std::slice::from_ref(l2_delta));
+                        lob.ask.apply_l2_deltas(std::slice::from_ref(&L2Delta {
+                            px: Price4Wrapper(*px),
+                            amt_delta: *amt_delta,
+                        }));
                     }
                 }
 
-                let b0 = match lob.bid.book().levels().get(0) {
-                    Some(b0) => *b0,
-                    None => return,
-                };
+                // let b0 = match lob.bid.book().levels().get(0) {
+                //     Some(b0) => *b0,
+                //     None => Price4Wrapper::default(),
+                // };
 
-                let a0 = match lob.ask.book().levels().get(0) {
-                    Some(a0) => *a0,
-                    None => return,
-                };
+                // let a0 = match lob.ask.book().levels().get(0) {
+                //     Some(a0) => *a0,
+                //     None => Price4Wrapper::default(),
+                // };
 
-                let stock = *stock;
+                // assert_lt!(b0, a0);
 
-                assert_lt!(b0, a0);
+                // let async_task = Invocable::new(move || {
+                //     println!(
+                //         "time=[{}], stock=[{}], b0=[{}], a0=[{}]",
+                //         msg.timestamp,
+                //         msg.stock_locate,
+                //         &f64::from(b0),
+                //         &f64::from(a0),
+                //     );
+                // });
 
-                let async_task = Invocable::new(move || {
-                    println!("stock=[{}], bids=[{}], asks=[{}]", stock, b0, a0);
-                });
-
-                let mut item = EventMessage::Event(async_task);
-                while let Err(PushError::Full(i)) = producer.push(item) {
-                    // println!("MarketData queue is full!");
-                    item = i;
-                    continue;
-                }
+                // let mut item = EventMessage::Event(async_task);
+                // while let Err(PushError::Full(i)) = async_producer.push(item) {
+                //     // println!("MarketData queue is full!");
+                //     item = i;
+                //     continue;
+                // }
             }
         });
         // ---------------------------------------------------------------------
         let tick1 = tick_counter::start();
+
+        if !had_updates {
+            continue;
+        }
 
         let async_task = Invocable::new(move || {
             println!(
@@ -135,24 +157,24 @@ fn limit_order_book_task(mut producer: Producer<EventMessage<Invocable>>) {
         });
 
         let mut item = EventMessage::Event(async_task);
-        while let Err(PushError::Full(i)) = producer.push(item) {
+        while let Err(PushError::Full(i)) = async_producer.push(item) {
             // println!("MarketData queue is full!");
             item = i;
             continue;
         }
     }
 
-    while let Err(_) = producer.push(EventMessage::Stop) {}
+    while let Err(_) = async_producer.push(EventMessage::Stop) {}
 }
 
 fn main() {
-    let (producer, consumer) = RingBuffer::new(2_usize.pow(32));
+    let (async_producer, async_consumer) = RingBuffer::new(2_usize.pow(32));
 
     std::thread::scope(move |s| {
         s.spawn(move || {
-            async_task(consumer);
+            async_task(async_consumer);
         });
 
-        limit_order_book_task(producer);
+        limit_order_book_task(async_producer);
     });
 }

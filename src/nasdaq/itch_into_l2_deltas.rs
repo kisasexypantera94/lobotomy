@@ -1,35 +1,57 @@
-use crate::common::types::Level;
+use crate::common::intrinsics::*;
 
-use itchy::{ArrayString8, Body, Price4, Side};
+use itchy::{Body, Message, Price4, Side};
 
-use std::collections::{HashMap, HashSet};
-
+#[derive(Clone, Copy)]
 struct Order {
-    stock: ArrayString8,
     side: Side,
     price: Price4,
     shares: u32,
 }
 
-#[inline(always)]
-fn price4_into_f64(price: &Price4) -> f64 {
-    const PRICE4_SCALE: f64 = 0.0001;
-    price.raw() as f64 * PRICE4_SCALE
+struct OrderPool {
+    orders: Vec<Option<Order>>,
+}
+
+impl OrderPool {
+    pub fn new() -> Self {
+        OrderPool {
+            orders: Vec::with_capacity(2_usize.pow(30)),
+        }
+    }
+
+    #[inline(always)]
+    pub fn insert(&mut self, reference: u64, order: Order) {
+        *self.get_mut(&reference) = Some(order);
+    }
+
+    #[inline(always)]
+    pub fn get_mut(&mut self, reference: &u64) -> &mut Option<Order> {
+        let reference = *reference as usize;
+
+        if unlikely(self.orders.len() <= reference as usize) {
+            self.orders.resize(reference + 1, None);
+            log::debug!("Resize triggered: new_len=[{}]", self.orders.len());
+        }
+
+        &mut self.orders[reference]
+    }
+
+    #[inline(always)]
+    pub fn get(&self, reference: &u64) -> &Option<Order> {
+        let reference = *reference as usize;
+        &self.orders[reference]
+    }
 }
 
 pub struct ItchIntoL2Deltas {
-    orders: HashMap<u64, Order>,
-    stock_filter: HashSet<ArrayString8>,
+    orders: OrderPool,
 }
 
 impl ItchIntoL2Deltas {
-    pub fn new(symbol_filter: &[String]) -> Self {
+    pub fn new() -> Self {
         ItchIntoL2Deltas {
-            orders: HashMap::new(),
-            stock_filter: symbol_filter
-                .iter()
-                .map(|s| ArrayString8::from(s).unwrap())
-                .collect(),
+            orders: OrderPool::new(),
         }
     }
 
@@ -37,32 +59,24 @@ impl ItchIntoL2Deltas {
     #[inline(always)]
     pub fn apply_message(
         &mut self,
-        body: &Body,
-        mut process_l2_delta: impl FnMut(&ArrayString8, &Side, &Level),
+        msg: &Message,
+        mut process_l2_delta: impl FnMut(&Side, &Price4, &i64),
     ) {
-        match body {
+        match &msg.body {
             Body::AddOrder(add_order) => {
-                let stock = ArrayString8::from(add_order.stock.trim_end()).unwrap();
-                if !self.stock_filter.contains(&stock) {
-                    return;
-                }
-
                 self.orders.insert(
                     add_order.reference,
                     Order {
-                        stock,
                         side: add_order.side,
                         price: add_order.price,
                         shares: add_order.shares,
                     },
                 );
+
                 process_l2_delta(
-                    &stock,
                     &add_order.side,
-                    &Level {
-                        px: price4_into_f64(&add_order.price),
-                        amt: add_order.shares as f64,
-                    },
+                    &add_order.price,
+                    &(add_order.shares as i64),
                 );
             }
             Body::OrderExecuted {
@@ -77,18 +91,7 @@ impl ItchIntoL2Deltas {
 
                 order.shares -= executed;
 
-                let stock = order.stock;
-                let side = order.side;
-                let l2_delta = Level {
-                    px: price4_into_f64(&order.price),
-                    amt: -1.0 * *executed as f64,
-                };
-
-                if order.shares == 0 {
-                    self.orders.remove(reference);
-                }
-
-                process_l2_delta(&stock, &side, &l2_delta);
+                process_l2_delta(&order.side, &order.price, &(-1 * *executed as i64));
             }
             Body::OrderExecutedWithPrice {
                 reference,
@@ -104,18 +107,7 @@ impl ItchIntoL2Deltas {
 
                 order.shares -= executed;
 
-                let stock = order.stock;
-                let side = order.side;
-                let l2_delta = Level {
-                    px: price4_into_f64(&order.price),
-                    amt: -1.0 * *executed as f64,
-                };
-
-                if order.shares == 0 {
-                    self.orders.remove(reference);
-                }
-
-                process_l2_delta(&stock, &side, &l2_delta);
+                process_l2_delta(&order.side, &order.price, &(-1 * *executed as i64));
             }
             Body::OrderCancelled {
                 reference,
@@ -128,44 +120,25 @@ impl ItchIntoL2Deltas {
 
                 order.shares -= cancelled;
 
-                let stock = order.stock;
-                let side = order.side;
-                let l2_delta = Level {
-                    px: price4_into_f64(&order.price),
-                    amt: -1.0 * *cancelled as f64,
-                };
-
-                if order.shares == 0 {
-                    self.orders.remove(reference);
-                }
-
-                process_l2_delta(&stock, &side, &l2_delta);
+                process_l2_delta(&order.side, &order.price, &(-1 * *cancelled as i64));
             }
             Body::DeleteOrder { reference } => {
-                let order = match self.orders.remove(reference) {
+                let order = match self.orders.get(reference) {
                     Some(o) => o,
                     None => return,
                 };
 
-                process_l2_delta(
-                    &order.stock,
-                    &order.side,
-                    &Level {
-                        px: price4_into_f64(&order.price),
-                        amt: -1.0 * order.shares as f64,
-                    },
-                );
+                process_l2_delta(&order.side, &order.price, &(-1 * order.shares as i64));
             }
             Body::ReplaceOrder(replace_order) => {
-                let old_order = match self.orders.remove(&replace_order.old_reference) {
-                    Some(o) => o,
+                let old_order = match self.orders.get(&replace_order.old_reference) {
+                    Some(o) => *o,
                     None => return,
                 };
 
                 self.orders.insert(
                     replace_order.new_reference,
                     Order {
-                        stock: old_order.stock,
                         side: old_order.side,
                         price: replace_order.price,
                         shares: replace_order.shares,
@@ -173,28 +146,18 @@ impl ItchIntoL2Deltas {
                 );
 
                 process_l2_delta(
-                    &old_order.stock,
                     &old_order.side,
-                    &Level {
-                        px: price4_into_f64(&old_order.price),
-                        amt: -1.0 * old_order.shares as f64,
-                    },
+                    &old_order.price,
+                    &(-1 * old_order.shares as i64),
                 );
 
                 process_l2_delta(
-                    &old_order.stock,
                     &old_order.side,
-                    &Level {
-                        px: price4_into_f64(&replace_order.price),
-                        amt: replace_order.shares as f64,
-                    },
+                    &replace_order.price,
+                    &(replace_order.shares as i64),
                 );
             }
             _ => (),
         }
-    }
-
-    pub fn len(&self) -> usize {
-        self.orders.len()
     }
 }

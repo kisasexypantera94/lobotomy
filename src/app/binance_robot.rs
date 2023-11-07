@@ -46,9 +46,11 @@ fn limit_order_book_task(mut md_receiver: spsc::Consumer<EventMessage<MarketData
     let start_px = 0.0;
     let end_px = None;
     let tick_size = 0.01;
-    const LOB_SIZE: usize = 5;
-    let mut bid_lob_builder = L2BookBuilder::<LOB_SIZE, true>::new(start_px, end_px, tick_size);
-    let mut ask_lob_builder = L2BookBuilder::<LOB_SIZE, false>::new(start_px, end_px, tick_size);
+    const LOB_SIZE: usize = 2_usize.pow(14);
+    let mut bid_lob_builder =
+        L2BookBuilder::<f64, f64, LOB_SIZE, true>::new(start_px, end_px, tick_size);
+    let mut ask_lob_builder =
+        L2BookBuilder::<f64, f64, LOB_SIZE, false>::new(start_px, end_px, tick_size);
 
     loop {
         let msg = match md_receiver.dequeue() {
@@ -81,7 +83,7 @@ fn limit_order_book_task(mut md_receiver: spsc::Consumer<EventMessage<MarketData
                 let asks = ask_lob_builder.book().levels();
 
                 log::info!(
-                    "latency=[{}], bids=[{:?}], asks=[{}]",
+                    "latency=[{}], bids=[{}], asks=[{}]",
                     ((tick1 - tick0) as f64 * counter_accuracy).round() as usize / num_updates,
                     bids[0],
                     asks[0]
