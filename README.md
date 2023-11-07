@@ -37,7 +37,7 @@ Measured with [nasdaq_robot](src/app/nasdaq_robot.rs) on Apple M1 Pro.
 | 0.8            |   1024ns  |
 | 0.9            |   1259ns  |
 | 0.95           |   1569ns  |
-| 0.99           |   27085ns |
+| 0.99           |   2708ns |
 
 
 Measured with [binance_robot](src/app/binance_robot.rs) on Apple M1 Pro.
