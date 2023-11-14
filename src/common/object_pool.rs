@@ -12,6 +12,7 @@ impl<T: Default> ObjectPool<T> {
         }
     }
 
+    #[inline(always)]
     pub fn allocate(&mut self) -> usize {
         match self.free.pop() {
             Some(idx) => idx,
@@ -22,14 +23,17 @@ impl<T: Default> ObjectPool<T> {
         }
     }
 
+    #[inline(always)]
     pub fn get(&self, idx: usize) -> &T {
         &self.pool[idx]
     }
 
+    #[inline(always)]
     pub fn get_mut(&mut self, idx: usize) -> &mut T {
         &mut self.pool[idx]
     }
 
+    #[inline(always)]
     pub fn free(&mut self, idx: usize) {
         self.free.push(idx);
     }

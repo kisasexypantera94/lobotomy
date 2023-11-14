@@ -34,6 +34,10 @@ path = "src/app/binance_robot.rs"
 name = "nasdaq_robot"
 path = "src/app/nasdaq_robot.rs"
 
+[[bin]]
+name = "nasdaq_robot_v2"
+path = "src/app/nasdaq_robot_v2.rs"
+
 [profile.release]
 debug = false
 opt-level = 3

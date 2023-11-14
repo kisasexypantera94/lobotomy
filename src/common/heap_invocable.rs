@@ -12,6 +12,7 @@ impl HeapInvocable {
         }
     }
 
+    #[inline(always)]
     pub fn invoke(&mut self) {
         (self.data)()
     }

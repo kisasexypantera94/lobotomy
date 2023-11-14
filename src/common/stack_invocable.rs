@@ -8,6 +8,7 @@ pub struct StackInvocable<const SIZE: usize> {
 }
 
 impl<const SIZE: usize> StackInvocable<SIZE> {
+    #[inline(always)]
     pub fn new<F: FnMut() + Send + 'static>(func: F) -> Self {
         let mut storage = [0; SIZE];
         more_asserts::assert_le!(mem::size_of::<F>(), mem::size_of_val(&storage)); // TODO: fail at compile time
@@ -36,12 +37,14 @@ impl<const SIZE: usize> StackInvocable<SIZE> {
         }
     }
 
+    #[inline(always)]
     pub fn invoke(&mut self) {
         (self.invoke_fn)(self.storage.as_ptr() as *mut u8);
     }
 }
 
 impl<const SIZE: usize> Drop for StackInvocable<SIZE> {
+    #[inline(always)]
     fn drop(&mut self) {
         (self.drop_fn)(self.storage.as_ptr() as *mut u8);
     }

@@ -3,7 +3,7 @@ extern crate lobotomy;
 use lobotomy::binance::{DepthDiffDecoder, MarketData, RestoreManager};
 use lobotomy::common::communication::EventMessage;
 use lobotomy::common::WebSocketListener;
-use lobotomy::order_book::L2BookBuilder;
+use lobotomy::order_book::v1::L2BookBuilder;
 
 use heapless::spsc; // std::sync::mpsc was causing a segfault
 
@@ -43,7 +43,7 @@ fn calibrate_tick_counter() -> f64 {
 fn limit_order_book_task(mut md_receiver: spsc::Consumer<EventMessage<MarketData>, QUEUE_SIZE>) {
     let counter_accuracy = calibrate_tick_counter();
 
-    let start_px = 0.0;
+    let start_px = 35567.0;
     let end_px = None;
     let tick_size = 0.01;
     const LOB_SIZE: usize = 2_usize.pow(14);

@@ -1,8 +1,8 @@
-#[inline]
+#[inline(always)]
 #[cold]
 fn cold() {}
 
-#[inline]
+#[inline(always)]
 pub fn likely(b: bool) -> bool {
     if !b {
         cold()
@@ -10,7 +10,7 @@ pub fn likely(b: bool) -> bool {
     b
 }
 
-#[inline]
+#[inline(always)]
 pub fn unlikely(b: bool) -> bool {
     if b {
         cold()

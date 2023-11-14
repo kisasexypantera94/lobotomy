@@ -4,7 +4,7 @@ use lobotomy::common::communication::EventMessage;
 use lobotomy::common::types::L2Delta;
 use lobotomy::common::StackInvocable;
 use lobotomy::nasdaq::{ItchIntoL2Deltas, Price4Wrapper};
-use lobotomy::order_book::L2BookBuilder;
+use lobotomy::order_book::v1::L2BookBuilder;
 
 use itchy::Body;
 use more_asserts::assert_lt;
